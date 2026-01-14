@@ -1,83 +1,31 @@
-# global options
-{
-	admin off # theres no need for the admin api in railway's environment
-	persist_config off # storage isn't persistent anyway
-	auto_https off # railway handles https for us, this could in some cases cause issues if left enabled
-	# runtime logs
-	log {
-		format json # set runtime log format to json mode 
-	}
-	# server options
-	servers {
-		trusted_proxies static private_ranges # trust railway's proxy
-	}
+{ # global options
+    admin off # theres no need for the admin api in railway's environment
+    persist_config off # storage isn't persistent anyway
+    auto_https off # railway handles https for us, this would cause issues if left enabled
+    log { # runtime logs
+        format console # set runtime log format to console mode 
+    }
+    servers { # server options
+        trusted_proxies static private_ranges # trust railway's proxy
+    }
 }
 
-(lb_settings) {
-	lb_policy round_robin
-	lb_retries 1
-	lb_try_duration 10s
-	lb_try_interval 250ms
-}
-
-(passive_health_checks) {
-	fail_duration 60s
-	max_fails 300
-	unhealthy_latency 5s
-	unhealthy_request_count 200
-}
-
-# site block, listens on the $PORT environment variable, automatically assigned by railway
-:{$PORT} {
-    log {
-        format json
+:{$PORT} { # site block, listens on the $PORT environment variable, automatically assigned by railway
+    log { # access logs
+        format console # set access log format to console mode
     }
 
-    # 1. API PROXY (Backend)
-    # Ensure $BACKEND_PATH is set to /api in Railway env vars
-    handle_path {$BACKEND_PATH:/api}/* {
-        reverse_proxy {
-            dynamic a {
-                name {$BACKEND_DOMAIN}
-                port {$BACKEND_PORT}
-                refresh 1s
-            }
-            import lb_settings
-            import passive_health_checks
+    reverse_proxy {$FRONTEND_HOST}:4000 # proxy all requests for /* to the frontend, configure this variable in the service settings
 
-			header_up Host {upstream_hostport} # Keep this for Railway routing
-            
-            # Add these for your Rust API's awareness
-            header_up X-Forwarded-Host {host}
-            header_up X-Forwarded-Proto {scheme}
-
-        }
+    # the handle_path directive will strip /api/ from the path before proxying
+    # this is needed if your backend's api routes don't start with /api/
+    # change paths as needed
+    handle_path /api/* { # this strips the /api/ prefix from the uri sent to the proxy address
+        reverse_proxy {$BACKEND_HOST}:4000 # proxy all requests for /api/* to the backend, configure this variable in the service settings
     }
 
-    # 2. SVELTEKIT (Frontend)
-    # Using 'handle' without a path makes this the fallback/catch-all
-    handle {
-        reverse_proxy {
-            dynamic a {
-                name {$FRONTEND_DOMAIN}
-                port {$FRONTEND_PORT}
-                refresh 1s
-            }
-            import lb_settings
-            import passive_health_checks
-
-			 # 1. Keep internal routing host
-            header_up Host {upstream_hostport} 
-
-            # 2. Pass the "Public" identity to SvelteKit
-            header_up X-Forwarded-Host {host}
-            
-            # 3. CRITICAL: SvelteKit uses this to see "https" instead of "http"
-            header_up X-Forwarded-Proto {header.X-Forwarded-Proto}
-            
-            # 4. Pass the real user IP
-            header_up X-Real-IP {header.Cf-Connecting-Ip}
-
-        }
-    }
+    # if your backend's api routes do start with /api/ then you wouldn't want to strip the path prefix
+    # if so, comment out the above handle_path block, and uncomment this reverse_proxy directive
+    # change paths as needed
+    # reverse_proxy {$BACKEND_HOST}:4000 # configure this variable in the service settings
 }
