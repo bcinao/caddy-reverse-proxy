@@ -15,7 +15,7 @@
 
 (lb_settings) {
 	lb_policy round_robin
-	lb_retries 100
+	lb_retries 1
 	lb_try_duration 10s
 	lb_try_interval 250ms
 }
@@ -29,42 +29,55 @@
 
 # site block, listens on the $PORT environment variable, automatically assigned by railway
 :{$PORT} {
-	log {
-		format json
-	}
+    log {
+        format json
+    }
 
-	# 1️⃣ Backend (Strapi)
-	handle /api/* {
-		reverse_proxy {
-			dynamic a {
-				name {$BACKEND_DOMAIN}
-				port {$BACKEND_PORT}
-				refresh 1s
-				dial_timeout 30s
-				versions ipv4 ipv6
-			}
+    # 1. API PROXY (Backend)
+    # Ensure $BACKEND_PATH is set to /api in Railway env vars
+    handle_path {$BACKEND_PATH:/api}/* {
+        reverse_proxy {
+            dynamic a {
+                name {$BACKEND_DOMAIN}
+                port {$BACKEND_PORT}
+                refresh 1s
+            }
+            import lb_settings
+            import passive_health_checks
 
-			import lb_settings
-			import passive_health_checks
-		}
-	}
+			header_up Host {upstream_hostport} # Keep this for Railway routing
+            
+            # Add these for your Rust API's awareness
+            header_up X-Forwarded-Host {host}
+            header_up X-Forwarded-Proto {scheme}
 
-	# 2️⃣ Frontend (catch-all)
-	handle {
-		reverse_proxy {
-			dynamic a {
-				name {$FRONTEND_DOMAIN}
-				port {$FRONTEND_PORT}
-				refresh 1s
-				dial_timeout 30s
-				versions ipv4 ipv6
-			}
+        }
+    }
 
-			import lb_settings
-			import passive_health_checks
+    # 2. SVELTEKIT (Frontend)
+    # Using 'handle' without a path makes this the fallback/catch-all
+    handle {
+        reverse_proxy {
+            dynamic a {
+                name {$FRONTEND_DOMAIN}
+                port {$FRONTEND_PORT}
+                refresh 1s
+            }
+            import lb_settings
+            import passive_health_checks
 
-			header_up Host {upstream_hostport}
-		}
-	}
+			 # 1. Keep internal routing host
+            header_up Host {upstream_hostport} 
+
+            # 2. Pass the "Public" identity to SvelteKit
+            header_up X-Forwarded-Host {host}
+            
+            # 3. CRITICAL: SvelteKit uses this to see "https" instead of "http"
+            header_up X-Forwarded-Proto {header.X-Forwarded-Proto}
+            
+            # 4. Pass the real user IP
+            header_up X-Real-IP {header.Cf-Connecting-Ip}
+
+        }
+    }
 }
-
