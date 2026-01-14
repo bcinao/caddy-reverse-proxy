@@ -35,7 +35,7 @@
 
     # 1. API PROXY (Backend)
     # Ensure $BACKEND_PATH is set to /api in Railway env vars
-    handle_path {$BACKEND_PATH:/api} {
+    handle_path {$BACKEND_PATH:/api}/* {
         reverse_proxy {
             dynamic a {
                 name {$BACKEND_DOMAIN}
