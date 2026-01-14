@@ -46,8 +46,6 @@
 
 			import lb_settings
 			import passive_health_checks
-
-			header_up Host {upstream_hostport}
 		}
 	}
 
