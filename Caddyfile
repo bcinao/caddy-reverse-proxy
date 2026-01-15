@@ -84,7 +84,7 @@
 		}
 	}
 
-	handle admin.pymenton.cl/admin {
+	handle admin.pymenton.cl {
 		reverse_proxy {
 			# for private networking replicas are exposed as multiple dns results, use those dns results as the upstreams
 			dynamic a {
