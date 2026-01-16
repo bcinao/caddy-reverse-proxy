@@ -52,7 +52,10 @@
 		import passive_health_checks
 
 		# sets the Host header to the header to the dynamic name and port options
-		header_up Host {host}
+		header_up Host {upstream_hostport}
+	    header_up X-Forwarded-Host {host}
+	    header_up X-Forwarded-Proto {scheme}
+	    header_up X-Forwarded-For {remote}
 	}
 
 	# the handle_path directive WILL strip /api/ from the path before proxying
