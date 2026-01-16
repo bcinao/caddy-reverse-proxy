@@ -58,7 +58,7 @@
 	### =========================
 	### STRAPI ADMIN
 	### =========================
-	handle /admin {
+	handle /panel {
 		reverse_proxy {
 			dynamic a {
 				name {$BACKEND_DOMAIN}
