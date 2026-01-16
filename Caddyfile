@@ -90,10 +90,7 @@
 		}
 	}
 
-handle_path {$BACKEND_PATH:/panel} {
-		# the /api/ prefix WILL be stripped from the uri sent to the proxy host
-		#
-		# proxy all requests for /api/* to the backend, configure this variable in the service settings
+	handle_path /panel {
 		reverse_proxy {
 			# for private networking replicas are exposed as multiple dns results, use those dns results as the upstreams
 			dynamic a {
